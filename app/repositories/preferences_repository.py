@@ -18,7 +18,11 @@ def get_preferences_by_user(user_id: UUID) -> Optional[NotificationPreferences]:
             return NotificationPreferences(**row)
 
 
-def update_preferences(user_id: UUID, updates: dict) -> Optional[NotificationPreferences]:
+def update_preferences(
+    user_id: UUID,
+    updates: dict,
+    expected_version: int,
+) -> Optional[NotificationPreferences]:
     if not updates:
         return get_preferences_by_user(user_id)
 
@@ -28,12 +32,34 @@ def update_preferences(user_id: UUID, updates: dict) -> Optional[NotificationPre
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                f"UPDATE notification_preferences SET {set_clauses}, updated_at = NOW() "
-                f"WHERE user_id = %s "
+                f"UPDATE notification_preferences SET {set_clauses}, "
+                f"version = version + 1, updated_at = NOW() "
+                f"WHERE user_id = %s AND version = %s "
                 f"RETURNING user_id, tenant_id, email_enabled, sms_enabled, push_enabled, frequency, version",
-                values + [str(user_id)],
+                values + [str(user_id), expected_version],
             )
             row = cur.fetchone()
             if not row:
                 return None
+            return NotificationPreferences(**row)
+
+
+def create_preferences(
+    user_id: UUID,
+    tenant_id: UUID,
+    values: dict,
+) -> NotificationPreferences:
+    columns = ["user_id", "tenant_id", *values.keys()]
+    placeholders = ", ".join(["%s"] * len(columns))
+    column_names = ", ".join(columns)
+
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"INSERT INTO notification_preferences ({column_names}) "
+                f"VALUES ({placeholders}) "
+                f"RETURNING user_id, tenant_id, email_enabled, sms_enabled, push_enabled, frequency, version",
+                [str(user_id), str(tenant_id), *values.values()],
+            )
+            row = cur.fetchone()
             return NotificationPreferences(**row)

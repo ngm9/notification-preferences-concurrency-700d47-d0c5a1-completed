@@ -1,5 +1,7 @@
 from fastapi import FastAPI
-from app.routers import preferences
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.routers import auth, preferences
 
 app = FastAPI(
     title="Notification Preferences API",
@@ -7,6 +9,15 @@ app = FastAPI(
     version="1.0.0",
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(auth.router, prefix="/api/v1")
 app.include_router(preferences.router, prefix="/api/v1")
 
 

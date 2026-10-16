@@ -1,15 +1,31 @@
-from fastapi import Header, HTTPException
+from datetime import datetime, timedelta, timezone
+from uuid import UUID
+
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
+
 from app.config import settings
 from app.models.auth import TokenClaims
-from typing import Optional
+
+bearer_scheme = HTTPBearer()
 
 
-def decode_token(authorization: Optional[str] = Header(default=None)) -> TokenClaims:
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+def create_access_token(user_id: UUID, tenant_id: UUID, role: str) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(hours=24)
+    payload = {
+        "user_id": str(user_id),
+        "tenant_id": str(tenant_id),
+        "role": role,
+        "exp": expire,
+    }
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
-    token = authorization.removeprefix("Bearer ").strip()
+
+def decode_token(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+) -> TokenClaims:
+    token = credentials.credentials
 
     try:
         payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])

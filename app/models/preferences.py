@@ -13,6 +13,21 @@ class NotificationPreferences(BaseModel):
     version: int
 
 
+class PreferencesCreateRequest(BaseModel):
+    email_enabled: bool = True
+    sms_enabled: bool = False
+    push_enabled: bool = True
+    frequency: str = "realtime"
+
+    @field_validator("frequency")
+    @classmethod
+    def validate_frequency(cls, v):
+        allowed = {"realtime", "daily", "weekly", "never"}
+        if v not in allowed:
+            raise ValueError(f"frequency must be one of {allowed}")
+        return v
+
+
 class PreferencesUpdateRequest(BaseModel):
     email_enabled: Optional[bool] = None
     sms_enabled: Optional[bool] = None
